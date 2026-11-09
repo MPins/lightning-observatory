@@ -22,7 +22,7 @@ Output (nodenamer.log) with the node IDs, implementation names and version numbe
 
 Obs: The investigation done until the moment did not indicate that there is a reliable way to get the version of a lightning node implementation from feature bits, color or default policy
 
-This project was proposed by Chaincode Hackathon, see the document [here](https://github.com/MPins/lightning-nodenamer/blob/main/Hackathon-Project-NodeNamer.pdf).
+This project was proposed by Chaincode Hackathon, see the document [here](https://github.com/MPins/lightning-nodenamer/blob/main/legacy/Hackathon-Project-NodeNamer.pdf).
 
 # Dependencies
 
@@ -95,7 +95,7 @@ This way I think we minimize the chance of getting false positives.
 
 This is the State Machine tha was coded to read the Graph JSON file.
 
-![alt text](image.png)
+![alt text](legacy/image.png)
 
 # Grafana Integration
 
