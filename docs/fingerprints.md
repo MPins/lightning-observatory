@@ -13,6 +13,7 @@ Surveyed on 2026-11-09 from shallow clones of the release tags:
 | Core Lightning | `v26.06.10` | `e8b1609e` |
 | Eclair | `v0.14.6` | `50e046e` |
 | LDK | `v0.2.7` | `5ce2ecb` |
+| ldk-node (app on LDK 0.2) | `v0.7.1` | `edc8916` |
 
 Sources are `path:line` inside each repository at that commit. Out of scope:
 detecting the version of an implementation.
@@ -64,13 +65,17 @@ Default sets, as announced:
 - **CLN**: {0, 5, 7, 8, 11, 12, 14, 17, 19, 23, 25, 27, 35, 39, 43, 44, 47, 51, 55, 63}
 - **Eclair**: {0, 7, 8, 11, 12, 14, 17, 19, 23, 25, 27, 29, 35, 37, 39, 44, 47, 61, 63, 81}
 - **LDK**: {0, 5, 7, 8, 12, 14, 17, 19, 25, 27, 35, 39, 43, 44, 47, 51, 55, 63}
+- **ldk-node**: the LDK set plus 23 (anchors are on by default), that is
+  the CLN set without 11. Feature bits alone separate ldk-node from CLN only
+  by bit 11; the channel policy and the color separate them clearly.
 
 Bits that only one implementation sets:
 
 - lnd: 31, 261, 2023.
 - Eclair: 37, 81 by default; the custom bits 148/149 and 564/565, which are off
   by default.
-- LDK: 141, 153 and 259, all off by default.
+- LDK: 141, 153 and 259, all off by default. ldk-node adds 729 (LSPS) when
+  it advertises an LSP service, off by default.
 - CLN: none by default. CLN differs from LDK by having 11 and 23 and lacking
   nothing LDK has.
 
@@ -83,8 +88,8 @@ Bits that only one implementation sets:
 | `fee_proportional_millionths` | 1 | 10 | 200 | 0 |
 | `htlc_minimum_msat` | max(peer's, 1000) | peer's | peer's | peer's |
 | `htlc_maximum_msat` | min(peer's max in-flight, capacity): 99% of capacity with an lnd peer | capacity − peer's reserve, capped by peer's max in-flight | steps down with local balance; at most min(50 mBTC, 45% of capacity) | min(90% of capacity, peer's max in-flight) |
-| Color | `#3399ff` | first 3 bytes of the node id | `#49daaa` | none (set by the app) |
-| Alias | hex of the first 10 bytes of the node id | ADJECTIVE+NOUN derived from the node id, e.g. `SLICKERPHOTO` | `eclair` | none (set by the app) |
+| Color | `#3399ff` | first 3 bytes of the node id | `#49daaa` | none (set by the app); always `#000000` in ldk-node |
+| Alias | hex of the first 10 bytes of the node id | ADJECTIVE+NOUN derived from the node id, e.g. `SLICKERPHOTO` | `eclair` | none (set by the app); ldk-node requires one to announce |
 | `channel_update` refresh | every 24 h | every 13 days | every 10 days | set by the app |
 
 The (`cltv_expiry_delta`, `fee_proportional_millionths`) pair alone separates
@@ -183,6 +188,25 @@ node-announcement features are the union of every handler's
 | `htlc_maximum_msat` | min(90% of capacity, peer's max in-flight); LDK limits inbound in-flight to 10%, so its peers tend to announce 10% | `lightning/src/ln/channel.rs:4300,13114-13121`, `lightning/src/util/config.rs:252` |
 | `message_flags` | 1 | `lightning/src/ln/channelmanager.rs:5195` |
 | `channel_update` timestamp | follows block header time, not wall clock | `lightning/src/ln/channel.rs:11405-11406` |
+
+## ldk-node v0.7.1
+
+The most common app built on LDK; it depends on `lightning` 0.2
+(`Cargo.toml:32`). It keeps LDK's channel policy and changes the node
+announcement.
+
+| Signal | Default | Source |
+|--------|---------|--------|
+| `cltv_expiry_delta`, fees | LDK's: 72, 1000 / 0 | `src/config.rs:494-497` |
+| `default_cltv_expiry_delta` = 144 | in the docs table only; no such field exists | `src/config.rs:114` |
+| Bit 23 anchors | on (`anchor_channels_config: Some`) | `src/config.rs:198,326-327` |
+| Bit 7 gossip_queries | on with the default P2P gossip; off with Rapid Gossip Sync | `src/builder.rs:1599,1685-1696` |
+| Bit 39 onion_messages | on, `OnionMessenger` is always built | `src/builder.rs:1571-1583` |
+| Bit 729 LSPS | only when an LSP service is advertised | `src/message_handler.rs:84-90`; LDK `lightning-liquidity/src/manager.rs:66,925-929` |
+| Color | always `#000000` (`[0; 3]`) | `src/lib.rs:501` |
+| Alias | none by default; without alias and listening addresses the node does not announce channels | `src/config.rs:305-315,331-333` |
+| `node_announcement` refresh | every hour | `src/config.rs:70` |
+| LSPS2 service | max inbound HTLC in flight 100% of the channel | `src/builder.rs:1478` |
 
 ## Changes from the 2023/2024 templates
 

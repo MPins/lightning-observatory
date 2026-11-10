@@ -43,7 +43,8 @@ far found no reliable signal for it.
 
 [`docs/fingerprints.md`](docs/fingerprints.md) lists the default gossip
 values of the latest release of each implementation (lnd v0.21.6-beta,
-Core Lightning v26.06.10, Eclair v0.14.6 and LDK v0.2.7), with the
+Core Lightning v26.06.10, Eclair v0.14.6, LDK v0.2.7 and the ldk-node
+v0.7.1 app), with the
 `path:line` in each code base where every value comes from. The
 classifier will be built from that table.
 
