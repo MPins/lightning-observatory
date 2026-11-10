@@ -1,128 +1,69 @@
-# Overview
-The lightning network protocol is implemented by various different projects: LND, Core
-Lightning, Eclair and LDK. Each implementation has their own default values for various public
-pieces of information, which can be used to fingerprint them. This information can be useful for
-an attacker looking to exploit vulnerabilities that are specific to one implementation (or version
-of an implementation). This information can also be used to make informed decisions about
-protocol upgrades and deprecating features.
+# Lightning Nodenamer
 
-Examples of default values:
-- Feature bits that are distinct to an implementation, or a version of an implementation.
-- Default routing policies such as fees and cltv delta.
-- Default generated node aliases or RGB colors.
+The Lightning Network is implemented by several projects: LND, Core
+Lightning, Eclair and LDK. Each one ships its own defaults for information
+that every node makes public through gossip, and those defaults can be used
+to tell which implementation a node runs. Examples:
 
-Input format:
-- A json description of the public graph. See the ones we use to start developing this project on graphs folder. We get it running the following command on a LND node:
-    - lncli describegraph
+- Feature bits in the `node_announcement`.
+- Routing policy in the `channel_update`: `cltv_expiry_delta`, fees,
+  `htlc_minimum_msat` and `htlc_maximum_msat`.
+- Generated node aliases and RGB colors.
 
-Output (nodenamer.log) with the node IDs, implementation names and version numbers:
-- Node ID (string): the hex-encoded pubkey of a node in the graph.
-- Implementation (string): LND, CLN, ECLR, LDK or UNKNOWN.
-- Version (string): the implementation version or UNKNOWN.
+Knowing the implementation mix of the network helps when deciding on
+protocol upgrades and feature deprecations. It also shows how exposed the
+network is to a bug in a single implementation.
 
-Obs: The investigation done until the moment did not indicate that there is a reliable way to get the version of a lightning node implementation from feature bits, color or default policy
+This project started at the Chaincode Hackathon
+([proposal](legacy/Hackathon-Project-NodeNamer.pdf)).
 
-This project was proposed by Chaincode Hackathon, see the document [here](https://github.com/MPins/lightning-nodenamer/blob/main/legacy/Hackathon-Project-NodeNamer.pdf).
+## Status
 
-# Dependencies
+**Being rewritten in Go.** The first version was a Python script that read
+an `lncli describegraph` dump and wrote logs for Promtail and Loki. It now
+lives in [`legacy/`](legacy/) for reference. The rewrite starts from
+scratch, and there is no runnable Go code yet.
 
-- IJSON python Library
+## What it will be
 
-ijson is a Python library that provides a way to work with JSON data in a streaming manner. It allows you to parse large JSON documents efficiently without loading the entire document into memory. Instead, it iterates over the JSON data, allowing you to process it piece by piece.
+A long-running Go service that:
 
-Run the following command to install the `ijson` library
+1. Reads the channel graph from an lnd node over gRPC: `DescribeGraph` at
+   startup, then `SubscribeChannelGraph` for updates. Later it will also
+   read gossip directly from the network as a peer (BOLT 7).
+2. Classifies every node as LND, CLN, Eclair, LDK or unknown, and records
+   which evidence was used (feature bits, channel policy, color, alias).
+3. Exposes node counts and capacity per implementation on `/metrics` for
+   Prometheus, with a Grafana dashboard on top.
 
-```sh
-pip install ijson
-```
+Detecting the *version* of an implementation is out of scope. The work so
+far found no reliable signal for it.
 
-# How to Run
+## Fingerprints
 
-To run the Nodenamer is very simple, just clone the git repository on your machine.
+[`docs/fingerprints.md`](docs/fingerprints.md) lists the default gossip
+values of the latest release of each implementation (lnd v0.21.6-beta,
+Core Lightning v26.06.10, Eclair v0.14.6 and LDK v0.2.7), with the
+`path:line` in each code base where every value comes from. The
+classifier will be built from that table.
 
-```sh
-git clone https://github.com/MPins/lightning-nodenamer
-```
+## Roadmap
 
-Go to the source folder and make sure you can run the `nodenamer.py` python program.
+- [x] Move the Python version to `legacy/`.
+- [x] Survey the current default fingerprints ([`docs/fingerprints.md`](docs/fingerprints.md)).
+- [ ] Go module skeleton (`cmd/nodenamer`).
+- [ ] Pure classifier with table-driven tests for each implementation.
+- [ ] lnd gRPC source, checked against `lncli describegraph` on regtest.
+- [ ] Prometheus metrics (`nodenamer_nodes`, `nodenamer_capacity_sat`).
+- [ ] Grafana dashboard rebuilt on the new metrics.
+- [ ] Gossip source that connects as a peer.
 
-```sh
-python nodenamer.py <graph json_file> <log_dir>
-```
+Integration tests will run on a regtest network in Docker.
 
-You can start using some graph json file examples on the graphs folder. For real results you have to create the graph json file
-running the command `lncli describegraph` on your LND node.
+## Legacy version
 
-The nodenamer will create the following files:
-- nodenamer.log, nodenamer-features.log and nodenamer-features-total.log into the <log_dir> folder indicate in the command line.
-- nodenamer-unknown-fingerprints.txt into the same folder of the graph file folder indicate in the command line.
-
-# Screen Output
-
-Besides the files created the program will show the following information on the screen
-
-- Nodes: #of_nodes | Channels: #of_channels
-- LND: #total of LND nodes
-- CLN: #total of CLN nodes
-- ECLR: #total of ECLR nodes
-- LDK: #total of LDK nodes
-- UNKNOWN NODES: #total of unknown nodes
-- NO UPDATES NODES: #total of nodes which there is no updates on this json graph file
-- NO FEATURE BIT NODES: #total of nodes which there is no feature bits on this json graph file
-- LND: #total capacity of LND nodes
-- CLN: #total capacity of CLN nodes
-- ECLR: #total capacity of ECLR nodes
-- LDK: #total capacity of LDK nodes
-- UNKNOWN NODES: #total capacity of unknown nodes
-- NO UPDATES NODES: #total capacity of nodes which there is no updates on this json graph file
-- NO FEATURE BIT NODES: #total capacity of nodes which there is no feature bits on this json graph file
-
-- Additionaly it will output the counting of each feature bits encountered on each node
-
-# Understanding the Approach
-
-The programm approach the node implementation identification using 3 layers of information:
-
-- The first layer is considering only the features bit, in my opinion it is the strongest info we have, if it is possible to identify the implementation using the feature bits the program will not run the following two layers on the specific node.
-
-- The second layer takes the unknown nodes from the first layer and try to figure them out looking at the default channel policies.
-
-- Only the third layer of investigation is considering the default color, which in my opinion is the weakest information to be considered.
-
-This way I think we minimize the chance of getting false positives.
-
-# The State Machine
-
-This is the State Machine tha was coded to read the Graph JSON file.
-
-![alt text](legacy/image.png)
-
-# Grafana Integration
-
-I created a [Grafana Dashboard](https://pins.grafana.net/public-dashboards/478199ff803c44138feb1439908e891f) to show the Lightning Nodenamer results.
-
-I'm using Promtail agent which ships the contents of local logs to a private Grafana Loki instance or Grafana Cloud (I'm using Grafana Cloud).
-
-Now the Nodenamer creates 3 log files:
-- nodenamer.log - each line on the log brings the pubkey, the implementation and version
-- nodenamer-features.log - each line on the log brings the bubkey and the feature bit, one line for each feature of each node. Grafana Cloud compleined about the data ingestion rate, for this reason the third log file was implemented and this one is not being used yet.
-- nodenamer-features-total.log - just one line for eache feature bit that brings the amount of nodes using that feature.
-
-Installing Promtail using Docker, modify tag to the most recent version.
-
-```sh
-docker pull grafana/promtail:latest
-```
-
-Configuring Promtail to send logs, follow the instructions [here](https://grafana.com/docs/grafana-cloud/send-data/logs/collect-logs-with-promtail/#option-1-send-logs-from-a-standalone-host), I'm sending logs from a standalone host.
-
-The grafana json file that exports the dashboard you can see [here](https://pins.grafana.net/public-dashboards/478199ff803c44138feb1439908e891f) is found on the main folder of the project with the name [lightning-nodenamer-grafana-dashboard.json](lightning-nodenamer-grafana-dashboard.json)
-
-# Feature Bits Fingerprint File
-
-Additionaly the file nodenamer-unknown-fingerprints.txt is generated at the same folder of the json graph file. It contains the unknown fingerprints and the reason to generate it is helping to identify new fingerprints during the use of nodenamer.
-
-
-
-
-
+See [`legacy/README.md`](legacy/README.md) for how the Python script worked
+and how to run it. The old Grafana dashboard export is
+[`lightning-nodenamer-grafana-dashboard.json`](lightning-nodenamer-grafana-dashboard.json).
+It will be replaced when the dashboard is rebuilt on the Prometheus
+metrics.
