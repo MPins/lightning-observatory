@@ -76,6 +76,56 @@ Several peers are needed for a complete graph.
 - Whether to depend on lnd's `brontide` and `lnwire` packages or write
   them is still open.
 
+## Node roles
+
+A second axis next to the implementation: what a node is in the world.
+Exchange, custodial wallet (e.g. Wallet of Satoshi), swap service, Lightning
+Service Provider (LSP), routing node, unknown. Roles are low-cardinality, so
+they fit the no-pubkey rule: capacity per role shows how much of the network
+sits with custodians. Like the implementation classifier, it returns the
+role, the layer that decided it and the evidence.
+
+What the public graph can and cannot show:
+
+- **Zero-conf channels are invisible.** An LSP opens them to mobile wallets
+  as unannounced channels, so they never reach the gossip or
+  `DescribeGraph`.
+- **Bit 51 (`option_zeroconf`) only means something per implementation.**
+  CLN and LDK announce it by default; lnd and Eclair only when configured
+  ([fingerprints](fingerprints.md)). An lnd or Eclair node announcing 51
+  (and 47, `option_scid_alias`) turned zero-conf on deliberately: an LSP
+  candidate. On CLN and LDK the bit says nothing.
+- **Known entities.** A versioned list of pubkey → entity → role, curated by
+  hand from public sources. The alias alone is self-declared and can be
+  copied, so it is evidence, not proof.
+- **Behaviour heuristics.** Channel count and capacity, fee levels, how often
+  the node rewrites its fees (swap services and active routers adjust fees
+  dynamically). Weak on their own; they need the known-entity list as ground
+  truth before they are trusted.
+- **Bit 729 (LSPS).** bLIP-52 lets an LSP announce feature bit 729 in its
+  `node_announcement`. Only LDK does it today, and only when the service is
+  configured with `advertise_service` (`lightning-liquidity`, also exposed
+  by ldk-node). CLN's LSPS plugin has the bit commented out, and Eclair and
+  lnd have no LSPS service. lnd keeps unknown bits and returns them in
+  `DescribeGraph` and `SubscribeChannelGraph` with `is_known: false`, so the
+  signal is already visible in phase 1. Its absence proves nothing.
+- **Eclair LSPs (Phoenix-style).** ACINQ's LSP for Phoenix runs Eclair with
+  its own protocol, not LSPS. Its funding features (`on_the_fly_funding`
+  560/561, `funding_fee_credit` 562/563) are init-only and never reach the
+  graph. Two node features that serve mobile wallets are off by default in
+  Eclair (`reference.conf`): `option_provide_storage` (42/43) and
+  `trampoline_payment_prototype` (148/149). An Eclair node announcing them
+  is an LSP candidate. CLN and LDK announce 43 by default, so there it says
+  nothing. The wallets themselves are unannounced, so the trampoline bit in
+  the graph marks the node that routes for them. CLN and LDK use the BOLT
+  proposal's bit 56/57 instead (off by default), which marks the same role.
+- **Asking the node (needs phase 3).** The LSP side answers
+  `lsps0.list_protocols` (BOLT 8 custom message type 37913) with the
+  protocols it serves; clients only send the request. A peer connection can
+  ask, which confirms an LSP that does not announce bit 729. Clients cannot
+  be probed: they are usually unannounced mobile wallets. This is an active
+  probe and needs its own decision.
+
 ## Other ideas
 
 - **Reachability.** Share of nodes announcing only Tor, only clearnet, or
