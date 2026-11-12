@@ -73,6 +73,31 @@ Several peers are needed for a complete graph.
 - **Raw update rate**, including messages lnd would filter or rate-limit.
 - **Propagation delay**: the update timestamp against the time it arrives.
 - **View comparison**: what lnd keeps against what the network sends.
+- **Several vantage points.** One collector with many peers already covers
+  the graph; collectors in different places of the network are what make
+  propagation measurable. Each hop batches gossip (lnd every 90 s, CLN and
+  Eclair every 60 s), so an update reaches different points minutes apart,
+  and the arrival-time difference between collectors is the propagation
+  measure. NTP-level clocks are enough at that scale. Collectors only
+  record raw messages with arrival time and a `collector` label; validation
+  against the chain happens once, centrally. Start with one collector, but
+  keep the record shape ready for more.
+- **Community collectors (later).** A collector that small could be run by
+  others. Gossip messages are signed by their authors, so a collector cannot
+  forge content, only drop it or lie about arrival times; propagation
+  metrics then need robust statistics (medians, per-collector consistency
+  checks) and a way to exclude a collector. A collector uses its own fresh
+  node key, never the operator's node key, macaroon or seed. It needs a
+  central ingestion endpoint, which the single-collector setup does not.
+  Each collector declares a coarse `region` label (continent or country)
+  instead of having its IP geolocated.
+- **Partitions.** Per-hop batching (60–90 s) dominates delay, so geography
+  barely changes propagation time; it matters for cuts (a country's
+  internet shutdown, a Tor outage). Signals: channels between two groups
+  disabled at once, updates from one region stopping, and collectors that
+  stop agreeing on which channels are fresh. Telling "a region went
+  offline" from "the network split" needs collectors on both sides of the
+  cut; from one side both look the same.
 - Whether to depend on lnd's `brontide` and `lnwire` packages or write
   them is still open.
 
@@ -130,6 +155,10 @@ What the public graph can and cannot show:
 
 - **Reachability.** Share of nodes announcing only Tor, only clearnet, or
   both.
+- **Node location.** Country and ASN of the clearnet addresses in
+  `node_announcement`s, from an offline database (no per-IP lookups to an
+  external service). Shows hosting concentration and gives partitions a
+  "where". Tor-only nodes have no location.
 - **Fee distribution.** Median and percentiles of the proportional and base
   fees over time.
 
