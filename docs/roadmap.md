@@ -44,6 +44,13 @@ chain and dropped zombie channels, and it provides the capacity.
   default fees and `cltv_expiry_delta`.
 - **Concentration.** Capacity share of the top 10, 50 and 100 nodes, and the
   number of nodes that together hold 50% of the capacity.
+- **Reachability.** Nodes announcing only Tor, only clearnet, or both.
+- **Node location.** Country and ASN of the clearnet addresses in each
+  `node_announcement`, looked up in an offline database; no IP is sent to
+  an external service. Nodes and capacity per country and per ASN show
+  hosting concentration and give later partition alerts a "where". Tor-only
+  nodes have no location. Database: DB-IP Lite (country and ASN, CC BY 4.0,
+  monthly, no account), so the dashboard credits DB-IP.
 - **Alert rules.** Prometheus rules kept in the repository, comparing the
   current window with the same window a week earlier (`offset 1w`): drop in
   active nodes, jump in disabled channels, large capacity change, unusual
@@ -153,12 +160,6 @@ What the public graph can and cannot show:
 
 ## Other ideas
 
-- **Reachability.** Share of nodes announcing only Tor, only clearnet, or
-  both.
-- **Node location.** Country and ASN of the clearnet addresses in
-  `node_announcement`s, from an offline database (no per-IP lookups to an
-  external service). Shows hosting concentration and gives partitions a
-  "where". Tor-only nodes have no location.
 - **Fee distribution.** Median and percentiles of the proportional and base
   fees over time.
 
