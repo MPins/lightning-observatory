@@ -42,6 +42,10 @@ const (
 type Result struct {
 	Impl  Implementation
 	Layer Layer
+	// Conflict is true when another layer points to a different
+	// implementation. A rising share of conflicts means the defaults have
+	// changed and docs/fingerprints.md needs a new survey.
+	Conflict bool
 	// Evidence lists every signal found, in layer order, including signals
 	// that point to another implementation.
 	Evidence []string
@@ -64,6 +68,11 @@ func Classify(n graph.Node, channels iter.Seq[graph.Channel]) Result {
 		r.Impl, r.Layer = byAnnouncement, LayerAnnouncement
 	default:
 		r.Impl, r.Layer = Unknown, LayerNone
+	}
+	for _, impl := range []Implementation{byFeatures, byPolicy, byAnnouncement} {
+		if impl != Unknown && impl != r.Impl {
+			r.Conflict = true
+		}
 	}
 	return r
 }

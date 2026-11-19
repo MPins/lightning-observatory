@@ -55,6 +55,7 @@ func TestClassify(t *testing.T) {
 		chans    []graph.Channel
 		impl     Implementation
 		layer    Layer
+		conflict bool
 		evidence []string // substrings that must appear
 	}{
 		{
@@ -109,8 +110,15 @@ func TestClassify(t *testing.T) {
 			name:  "features beat a conflicting policy",
 			node:  graph.Node{Features: graph.NewFeatures(lndBits...)},
 			chans: channels(pol(144, 200)),
-			impl:  LND, layer: LayerFeatures,
+			impl:  LND, layer: LayerFeatures, conflict: true,
 			evidence: []string{"bit 31", "Eclair default"},
+		},
+		{
+			name:  "policy beats a conflicting color",
+			node:  graph.Node{Features: graph.NewFeatures(commonBits...), Color: [3]byte{0x49, 0xda, 0xaa}},
+			chans: channels(pol(80, 1)),
+			impl:  LND, layer: LayerPolicy, conflict: true,
+			evidence: []string{"lnd default", "#49daaa"},
 		},
 		{
 			name:  "policy decides without fingerprint bits",
@@ -159,9 +167,9 @@ func TestClassify(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			tc.node.PubKey = self
 			got := Classify(tc.node, slices.Values(tc.chans))
-			if got.Impl != tc.impl || got.Layer != tc.layer {
-				t.Fatalf("Classify() = %s by %s, want %s by %s\nevidence: %q",
-					got.Impl, got.Layer, tc.impl, tc.layer, got.Evidence)
+			if got.Impl != tc.impl || got.Layer != tc.layer || got.Conflict != tc.conflict {
+				t.Fatalf("Classify() = %s by %s (conflict %t), want %s by %s (conflict %t)\nevidence: %q",
+					got.Impl, got.Layer, got.Conflict, tc.impl, tc.layer, tc.conflict, got.Evidence)
 			}
 			all := strings.Join(got.Evidence, "\n")
 			for _, want := range tc.evidence {

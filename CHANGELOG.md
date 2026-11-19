@@ -17,4 +17,5 @@ change; `v0.1.0` closes phase 1 of the [roadmap](docs/roadmap.md).
   fake source in `graphtest` for tests.
 - `internal/classify`: classifies a node as lnd, CLN, Eclair, LDK or
   unknown from its feature bits, then its own channel policies, then its
-  color and alias, and reports the deciding layer and all evidence.
+  color and alias, and reports the deciding layer, whether another layer
+  disagrees, and all evidence.
