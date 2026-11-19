@@ -30,6 +30,9 @@ chain and dropped zombie channels, and it provides the capacity.
 - **Implementation mix.** Node count and capacity per implementation
   (LND, CLN, Eclair, LDK, unknown), with the layer that classified each
   node. Read as risk: the capacity exposed to a bug in one implementation.
+  Nodes whose layers disagree are counted per implementation; a rising
+  share means a release changed its defaults and
+  [fingerprints](fingerprints.md) needs a new survey.
 - **Feature adoption.** Nodes and capacity announcing each feature bit, per
   implementation. The capacity-weighted view shows whether large nodes adopt
   a feature first.
@@ -78,6 +81,11 @@ capacities needs a chain backend (bitcoind, Esplora or an lnd/btcd node).
 Several peers are needed for a complete graph.
 
 - **Raw update rate**, including messages lnd would filter or rate-limit.
+- **Init features.** A peer connection sees the features of the `init`
+  message, which carry more than the node announcement (e.g. Eclair's
+  init-only 560 and 562). A fourth classifier layer, more direct and stable
+  than the packet-size model of Espinasa-Vilarrasa et al. (see Related
+  work).
 - **Propagation delay**: the update timestamp against the time it arrives.
 - **View comparison**: what lnd keeps against what the network sends.
 - **Several vantage points.** One collector with many peers already covers
@@ -162,6 +170,24 @@ What the public graph can and cannot show:
 
 - **Fee distribution.** Median and percentiles of the proportional and base
   fees over time.
+- **Classifier validation.** A hand-kept list of nodes whose operators
+  declare their implementation, scored against the classifier with a
+  confusion matrix. The same list holds the known entities of node roles.
+  Labels stay out of the repository and out of the metrics.
+
+## Related work
+
+- P. Espinasa-Vilarrasa, S. Sanvicente, C. Pérez-Solà, J.
+  Herrera-Joancomartí, "Decision Tree Based Inference of Lightning Network
+  Client Implementations" (Universitat Autònoma de Barcelona). With
+  September 2023 data and only lnd, CLN and Eclair, a decision tree on two
+  feature bits (0 and 5) classified 81 self-labeled mainnet nodes
+  correctly, and a model on encrypted packet sizes reached 94%. The two
+  agreed on 97.63% of unlabeled nodes and found lnd 85%, CLN 15%, Eclair
+  under 0.5%: a baseline for our first measurement. Its bit rules no longer
+  hold (every implementation now requires bit 0), which is why this
+  project re-surveys defaults from each release's source instead of
+  training on past data.
 
 ## Out of scope
 
