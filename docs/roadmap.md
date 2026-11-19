@@ -179,9 +179,12 @@ What the public graph can and cannot show:
 
 - P. Espinasa-Vilarrasa, S. Sanvicente, C. Pérez-Solà, J.
   Herrera-Joancomartí, "Decision Tree Based Inference of Lightning Network
-  Client Implementations" (Universitat Autònoma de Barcelona). With
-  September 2023 data and only lnd, CLN and Eclair, a decision tree on two
-  feature bits (0 and 5) classified 81 self-labeled mainnet nodes
+  Client Implementations", MDAI 2024, Springer,
+  [doi:10.1007/978-3-031-68208-7_9](https://doi.org/10.1007/978-3-031-68208-7_9);
+  open copy in the
+  [UAB repository](https://ddd.uab.cat/pub/caplli/2024/1a377a3febc7/Decision_Tree_Based_Inference_of_Lightning_Network_Client_Implementations.pdf).
+  With September 2023 data and only lnd, CLN and Eclair, a decision tree
+  on two feature bits (0 and 5) classified 81 self-labeled mainnet nodes
   correctly, and a model on encrypted packet sizes reached 94%. The two
   agreed on 97.63% of unlabeled nodes and found lnd 85%, CLN 15%, Eclair
   under 0.5%: a baseline for our first measurement. Its bit rules no longer
