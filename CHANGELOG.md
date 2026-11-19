@@ -12,3 +12,6 @@ change; `v0.1.0` closes phase 1 of the [roadmap](docs/roadmap.md).
   `cmd/observatory` command.
 - `observatory --version` prints the version and commit embedded by the Go
   toolchain.
+- `internal/graph`: in-memory model of the public graph (nodes, channels,
+  policies), the `Source` interface with snapshot and update stream, and a
+  fake source in `graphtest` for tests.
