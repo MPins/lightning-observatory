@@ -30,3 +30,6 @@ change; `v0.1.0` closes phase 1 of the [roadmap](docs/roadmap.md).
   channels and orphan nodes it prunes and may deliver notifications out of
   order. Updates that arrive during a refresh are replayed on the new
   graph, and a policy older than the stored one is dropped.
+- `observatory --help` describes the command with a usage line and an
+  example; a missing `--lnd.tlscert` or `--lnd.macaroon` is reported by
+  name, with the help, and exits with status 2.

@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -16,6 +17,20 @@ import (
 	"github.com/MPins/lightning-observatory/internal/source/lnd"
 	"github.com/MPins/lightning-observatory/internal/version"
 )
+
+const usage = `observatory keeps the public Lightning graph in memory, read from an
+lnd node over gRPC, and logs its size. Metrics for Prometheus are coming.
+
+Usage:
+  observatory --lnd.tlscert FILE --lnd.macaroon FILE [flags]
+
+Example:
+  observatory --lnd.host localhost:10009 \
+    --lnd.tlscert ~/.lnd/tls.cert \
+    --lnd.macaroon ~/.lnd/data/chain/bitcoin/mainnet/readonly.macaroon
+
+Flags:
+`
 
 func main() {
 	var (
@@ -26,13 +41,31 @@ func main() {
 		refreshEvery = flag.Duration("refresh-interval", time.Hour, "how often to replace the graph with a new snapshot")
 	)
 	flag.StringVar(&cfg.Host, "lnd.host", "localhost:10009", "lnd gRPC address")
-	flag.StringVar(&cfg.TLSCertPath, "lnd.tlscert", "", "path to lnd's tls.cert")
-	flag.StringVar(&cfg.MacaroonPath, "lnd.macaroon", "", "path to a macaroon; readonly.macaroon is enough")
+	flag.StringVar(&cfg.TLSCertPath, "lnd.tlscert", "", "path to lnd's tls.cert (required)")
+	flag.StringVar(&cfg.MacaroonPath, "lnd.macaroon", "", "path to a macaroon; readonly.macaroon is enough (required)")
+	flag.Usage = func() {
+		fmt.Fprint(flag.CommandLine.Output(), usage)
+		flag.PrintDefaults()
+	}
 	flag.Parse()
 
 	if *showVersion {
 		fmt.Println("observatory", version.Get())
 		return
+	}
+	var missing []string
+	for _, f := range []struct{ name, value string }{
+		{"lnd.tlscert", cfg.TLSCertPath},
+		{"lnd.macaroon", cfg.MacaroonPath},
+	} {
+		if f.value == "" {
+			missing = append(missing, "--"+f.name)
+		}
+	}
+	if len(missing) > 0 {
+		fmt.Fprintf(flag.CommandLine.Output(), "observatory: missing %s\n\n", strings.Join(missing, " and "))
+		flag.Usage()
+		os.Exit(2)
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
