@@ -68,6 +68,7 @@ func main() {
 		os.Exit(2)
 	}
 
+	// Ctrl-C and SIGTERM cancel ctx so run can return and clean up.
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	if err := run(ctx, cfg, *logEvery, *refreshEvery); err != nil {
