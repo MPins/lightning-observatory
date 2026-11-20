@@ -175,9 +175,10 @@ func (g *Graph) AddChannel(c Channel) {
 	g.index(c.Node2, c.ID)
 }
 
-// Apply applies one update. Updates must be applied in the order the source
-// delivered them: there is no timestamp check, because lnd's node updates
-// carry none.
+// Apply applies one update. A policy older than the one stored is dropped,
+// because lnd may deliver notifications out of order. Node updates carry no
+// timestamp in lnd's stream, so they always apply; the periodic snapshot
+// (Tracker) corrects any that arrived out of order.
 func (g *Graph) Apply(u Update) {
 	switch u := u.(type) {
 	case NodeUpdate:
@@ -188,18 +189,23 @@ func (g *Graph) Apply(u Update) {
 		if !ok {
 			c = Channel{ID: u.ChannelID, Node1: u.From, Node2: u.To}
 		}
-		if u.CapacitySat != 0 {
-			c.CapacitySat = u.CapacitySat
-		}
-		p := u.Policy
+		var slot **Policy
 		switch u.From {
 		case c.Node1:
-			c.Node1Policy = &p
+			slot = &c.Node1Policy
 		case c.Node2:
-			c.Node2Policy = &p
+			slot = &c.Node2Policy
 		default:
 			// The update names a node that is not on this channel.
 			return
+		}
+		if old := *slot; old != nil && u.Policy.LastUpdate.Before(old.LastUpdate) {
+			return
+		}
+		p := u.Policy
+		*slot = &p
+		if u.CapacitySat != 0 {
+			c.CapacitySat = u.CapacitySat
 		}
 		g.AddChannel(c)
 

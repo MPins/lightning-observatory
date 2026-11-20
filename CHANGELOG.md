@@ -25,3 +25,8 @@ change; `v0.1.0` closes phase 1 of the [roadmap](docs/roadmap.md).
   lnd's, so the module does not depend on lnd.
 - `observatory --lnd.host --lnd.tlscert --lnd.macaroon` loads the graph,
   follows its updates and logs its size.
+- The graph is replaced by a fresh snapshot every hour
+  (`--refresh-interval`), because lnd's stream does not report zombie
+  channels and orphan nodes it prunes and may deliver notifications out of
+  order. Updates that arrive during a refresh are replayed on the new
+  graph, and a policy older than the stored one is dropped.

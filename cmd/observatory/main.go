@@ -22,6 +22,8 @@ func main() {
 		showVersion = flag.Bool("version", false, "print the version and exit")
 		cfg         lnd.Config
 		logEvery    = flag.Duration("log-interval", time.Minute, "how often to log the graph size")
+		// lnd prunes zombie channels hourly without telling the stream.
+		refreshEvery = flag.Duration("refresh-interval", time.Hour, "how often to replace the graph with a new snapshot")
 	)
 	flag.StringVar(&cfg.Host, "lnd.host", "localhost:10009", "lnd gRPC address")
 	flag.StringVar(&cfg.TLSCertPath, "lnd.tlscert", "", "path to lnd's tls.cert")
@@ -35,13 +37,13 @@ func main() {
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	if err := run(ctx, cfg, *logEvery); err != nil {
+	if err := run(ctx, cfg, *logEvery, *refreshEvery); err != nil {
 		slog.Error("observatory stopped", "err", err)
 		os.Exit(1)
 	}
 }
 
-func run(ctx context.Context, cfg lnd.Config, logEvery time.Duration) error {
+func run(ctx context.Context, cfg lnd.Config, logEvery, refreshEvery time.Duration) error {
 	slog.Info("starting", "version", version.Get().String(), "lnd", cfg.Host)
 
 	src, err := lnd.Dial(cfg)
@@ -55,9 +57,18 @@ func run(ctx context.Context, cfg lnd.Config, logEvery time.Duration) error {
 		return err
 	}
 	logSize(g, "graph loaded")
+	tr := graph.NewTracker(g)
 
-	tick := time.NewTicker(logEvery)
-	defer tick.Stop()
+	type snapResult struct {
+		snap graph.Snapshot
+		err  error
+	}
+	snaps := make(chan snapResult, 1)
+
+	logTick := time.NewTicker(logEvery)
+	defer logTick.Stop()
+	refreshTick := time.NewTicker(refreshEvery)
+	defer refreshTick.Stop()
 	for {
 		select {
 		case u, ok := <-updates:
@@ -67,9 +78,30 @@ func run(ctx context.Context, cfg lnd.Config, logEvery time.Duration) error {
 				}
 				return fmt.Errorf("lnd graph stream closed")
 			}
-			g.Apply(u)
-		case <-tick.C:
-			logSize(g, "graph")
+			tr.Apply(u)
+
+		case <-refreshTick.C:
+			if tr.Refreshing() {
+				continue
+			}
+			tr.StartRefresh()
+			go func() {
+				snap, err := src.Snapshot(ctx)
+				snaps <- snapResult{snap, err}
+			}()
+
+		case r := <-snaps:
+			if r.err != nil {
+				tr.AbortRefresh()
+				slog.Error("graph refresh failed; keeping the current graph", "err", r.err)
+				continue
+			}
+			tr.FinishRefresh(r.snap)
+			logSize(tr.Graph(), "graph refreshed")
+
+		case <-logTick.C:
+			logSize(tr.Graph(), "graph")
+
 		case <-ctx.Done():
 			return nil
 		}

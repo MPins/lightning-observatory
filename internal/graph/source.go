@@ -36,6 +36,11 @@ func Load(ctx context.Context, src Source) (*Graph, <-chan Update, error) {
 	if err != nil {
 		return nil, nil, fmt.Errorf("snapshot: %w", err)
 	}
+	return FromSnapshot(snap), updates, nil
+}
+
+// FromSnapshot builds a graph from a snapshot.
+func FromSnapshot(snap Snapshot) *Graph {
 	g := New()
 	for _, n := range snap.Nodes {
 		g.AddNode(n)
@@ -43,5 +48,5 @@ func Load(ctx context.Context, src Source) (*Graph, <-chan Update, error) {
 	for _, c := range snap.Channels {
 		g.AddChannel(c)
 	}
-	return g, updates, nil
+	return g
 }
