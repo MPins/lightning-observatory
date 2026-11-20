@@ -1,0 +1,47 @@
+# Regtest network for the integration check: bitcoind and two lnd nodes.
+# alice exposes gRPC on localhost:10009 for the observatory.
+# Run regtest/check.sh rather than using this file directly.
+
+x-lnd: &lnd
+  image: lightninglabs/lnd:v0.21.6-beta
+  depends_on: [bitcoind]
+  restart: on-failure
+
+x-lnd-args: &lnd-args
+  - --bitcoin.regtest
+  - --bitcoin.node=bitcoind
+  - --bitcoind.rpchost=bitcoind:18443
+  - --bitcoind.rpcuser=regtest
+  - --bitcoind.rpcpass=regtest
+  - --bitcoind.zmqpubrawblock=tcp://bitcoind:28332
+  - --bitcoind.zmqpubrawtx=tcp://bitcoind:28333
+  - --noseedbackup
+  - --rpclisten=0.0.0.0:10009
+  - --tlsextradomain=localhost
+  # Flush gossip every second instead of every 90 s.
+  - --trickledelay=1000
+
+services:
+  bitcoind:
+    image: lightninglabs/bitcoin-core:29
+    command:
+      - bitcoind
+      - -regtest
+      - -server
+      - -txindex
+      - -rpcuser=regtest
+      - -rpcpassword=regtest
+      - -rpcbind=0.0.0.0
+      - -rpcallowip=0.0.0.0/0
+      - -fallbackfee=0.0002
+      - -zmqpubrawblock=tcp://0.0.0.0:28332
+      - -zmqpubrawtx=tcp://0.0.0.0:28333
+
+  alice:
+    <<: *lnd
+    command: *lnd-args
+    ports: ["127.0.0.1:10009:10009"]
+
+  bob:
+    <<: *lnd
+    command: *lnd-args
