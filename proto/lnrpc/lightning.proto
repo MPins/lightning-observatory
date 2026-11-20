@@ -1,0 +1,104 @@
+// A subset of lnd's lnrpc/lightning.proto (v0.21.6-beta, commit ac3a47f):
+// only the two graph calls the observatory makes and the messages they use.
+// Package, service, message names and field numbers are lnd's, so the calls
+// are wire-compatible; fields left out here are skipped when decoding.
+//
+// lnd is Copyright (C) 2015-2022 Lightning Labs and The Lightning Network
+// Developers, released under the MIT license.
+//
+// Regenerate with: buf generate proto   (from the repository root)
+
+syntax = "proto3";
+
+package lnrpc;
+
+option go_package = "github.com/MPins/lightning-observatory/internal/source/lnd/lnrpc";
+
+service Lightning {
+    // DescribeGraph returns the announced graph.
+    rpc DescribeGraph (ChannelGraphRequest) returns (ChannelGraph);
+
+    // SubscribeChannelGraph streams node updates, channel updates and
+    // closed channels.
+    rpc SubscribeChannelGraph (GraphTopologySubscription)
+        returns (stream GraphTopologyUpdate);
+}
+
+message ChannelGraphRequest {
+    bool include_unannounced = 1;
+}
+
+message ChannelGraph {
+    repeated LightningNode nodes = 1;
+    repeated ChannelEdge edges = 2;
+}
+
+message LightningNode {
+    uint32 last_update = 1;
+    string pub_key = 2;
+    string alias = 3;
+    repeated NodeAddress addresses = 4;
+    string color = 5;
+    map<uint32, Feature> features = 6;
+}
+
+message NodeAddress {
+    string network = 1;
+    string addr = 2;
+}
+
+message Feature {
+    string name = 2;
+    bool is_required = 3;
+    bool is_known = 4;
+}
+
+message ChannelEdge {
+    uint64 channel_id = 1;
+    string node1_pub = 4;
+    string node2_pub = 5;
+    int64 capacity = 6;
+    RoutingPolicy node1_policy = 7;
+    RoutingPolicy node2_policy = 8;
+}
+
+message RoutingPolicy {
+    uint32 time_lock_delta = 1;
+    int64 min_htlc = 2;
+    int64 fee_base_msat = 3;
+    int64 fee_rate_milli_msat = 4;
+    bool disabled = 5;
+    uint64 max_htlc_msat = 6;
+    uint32 last_update = 7;
+}
+
+message GraphTopologySubscription {
+}
+
+message GraphTopologyUpdate {
+    repeated NodeUpdate node_updates = 1;
+    repeated ChannelEdgeUpdate channel_updates = 2;
+    repeated ClosedChannelUpdate closed_chans = 3;
+}
+
+message NodeUpdate {
+    string identity_key = 2;
+    string alias = 4;
+    string color = 5;
+    map<uint32, Feature> features = 6;
+    repeated NodeAddress node_addresses = 7;
+}
+
+message ChannelEdgeUpdate {
+    uint64 chan_id = 1;
+    int64 capacity = 3;
+    RoutingPolicy routing_policy = 4;
+    string advertising_node = 5;
+    string connecting_node = 6;
+}
+
+message ClosedChannelUpdate {
+    uint64 chan_id = 1;
+    int64 capacity = 2;
+    uint32 closed_height = 3;
+}
